@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý xe - Admin</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="admin-dashboard.html" class="logo">🚌 BusTicket Admin</a>
+            <ul class="nav-links">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-routes.html">Tuyến đường</a></li>
+                <li><a href="admin-buses.html">Xe</a></li>
+                <li><a href="admin-schedules.html">Lịch trình</a></li>
+                <li><a href="admin-reports.html">Báo cáo</a></li>
+                <li><a onclick="logout()" style="cursor: pointer;">Đăng xuất</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Quản lý xe buýt</h1>
+
+        <div class="admin-form" style="margin-bottom: 40px;">
+            <h2>Thêm xe mới</h2>
+            <form id="addBusForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Biển số</label>
+                        <input type="text" id="busPlate" placeholder="29A-123456" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Loại xe</label>
+                        <select id="busType" required>
+                            <option value="">-- Chọn loại --</option>
+                            <option value="VIP">VIP</option>
+                            <option value="Limousine">Limousine</option>
+                            <option value="Giường nằm">Giường nằm</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Sức chứa (chỗ)</label>
+                        <input type="number" id="busCapacity" min="20" max="60" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Trạng thái</label>
+                        <select id="busStatus" required>
+                            <option value="active">Hoạt động</option>
+                            <option value="maintenance">Bảo dưỡng</option>
+                            <option value="inactive">Ngưng hoạt động</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Thêm xe</button>
+            </form>
+        </div>
+
+        <h2>Danh sách xe</h2>
+        <div id="busesList"></div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        if (!checkAdminAuth()) exit;
+
+        function loadBuses() {
+            const buses = JSON.parse(localStorage.getItem('buses'));
+            let html = '<table class="table"><thead><tr><th>Biển số</th><th>Loại xe</th><th>Sức chứa</th><th>Trạng thái</th><th>Hành động</th></tr></thead><tbody>';
+            
+            buses.forEach(bus => {
+                html += `
+                    <tr>
+                        <td>${bus.licensePlate}</td>
+                        <td>${bus.type}</td>
+                        <td>${bus.capacity}</td>
+                        <td><span class="badge badge-${bus.status}">${bus.status}</span></td>
+                        <td>
+                            <button onclick="deleteBus(${bus.id})" class="btn-small btn-danger">Xóa</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('busesList').innerHTML = html;
+        }
+
+        function deleteBus(busId) {
+            if (confirm('Bạn có chắc chắn muốn xóa xe này?')) {
+                const buses = JSON.parse(localStorage.getItem('buses'));
+                const filtered = buses.filter(b => b.id !== busId);
+                localStorage.setItem('buses', JSON.stringify(filtered));
+                showNotification('Xe đã được xóa');
+                loadBuses();
+            }
+        }
+
+        document.getElementById('addBusForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const buses = JSON.parse(localStorage.getItem('buses'));
+            const newBus = {
+                id: Date.now(),
+                licensePlate: document.getElementById('busPlate').value,
+                type: document.getElementById('busType').value,
+                capacity: parseInt(document.getElementById('busCapacity').value),
+                status: document.getElementById('busStatus').value,
+                driver: null
+            };
+            
+            buses.push(newBus);
+            localStorage.setItem('buses', JSON.stringify(buses));
+            showNotification('Xe đã được thêm');
+            this.reset();
+            loadBuses();
+        });
+
+        loadBuses();
+    </script>
+</body>
+</html>

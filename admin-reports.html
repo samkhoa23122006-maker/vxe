@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Báo cáo - Admin</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="admin-dashboard.html" class="logo">🚌 BusTicket Admin</a>
+            <ul class="nav-links">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-routes.html">Tuyến đường</a></li>
+                <li><a href="admin-buses.html">Xe</a></li>
+                <li><a href="admin-schedules.html">Lịch trình</a></li>
+                <li><a href="admin-reports.html">Báo cáo</a></li>
+                <li><a onclick="logout()" style="cursor: pointer;">Đăng xuất</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Báo cáo & Thống kê</h1>
+
+        <div style="margin-bottom: 30px;">
+            <h2>Lọc báo cáo</h2>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Từ ngày</label>
+                    <input type="date" id="startDate">
+                </div>
+                <div class="form-group">
+                    <label>Đến ngày</label>
+                    <input type="date" id="endDate">
+                </div>
+                <button onclick="filterReports()" class="btn-primary">Lọc</button>
+                <button onclick="exportReportPDF()" class="btn-secondary">Xuất PDF</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-box">
+                <h3>💰 Doanh thu</h3>
+                <p class="stat-value" id="reportRevenue">0đ</p>
+            </div>
+            <div class="stat-box">
+                <h3>🎫 Vé bán</h3>
+                <p class="stat-value" id="reportTickets">0</p>
+            </div>
+            <div class="stat-box">
+                <h3>💳 Giao dịch thành công</h3>
+                <p class="stat-value" id="reportTransactions">0</p>
+            </div>
+        </div>
+
+        <h2>Chi tiết giao dịch</h2>
+        <div id="transactionsList"></div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        if (!checkAdminAuth()) exit;
+
+        function filterReports() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            const stats = db.getRevenueStats(startDate, endDate);
+            
+            document.getElementById('reportRevenue').textContent = formatCurrency(stats.totalRevenue);
+            document.getElementById('reportTickets').textContent = db.getTickets('status', 'paid').length;
+            document.getElementById('reportTransactions').textContent = stats.transactions.length;
+
+            // Display transactions
+            let html = '<table class="table"><thead><tr><th>ID Giao dịch</th><th>ID Vé</th><th>Phương thức</th><th>Số tiền</th><th>Thời gian</th><th>Trạng thái</th></tr></thead><tbody>';
+            
+            stats.transactions.forEach(trans => {
+                html += `
+                    <tr>
+                        <td>${trans.id}</td>
+                        <td>${trans.ticketId}</td>
+                        <td>${trans.paymentMethod}</td>
+                        <td>${formatCurrency(trans.amount)}</td>
+                        <td>${trans.timestamp}</td>
+                        <td><span class="badge badge-${trans.status}">${trans.status}</span></td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('transactionsList').innerHTML = html;
+        }
+
+        function exportReportPDF() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const stats = db.getRevenueStats(startDate, endDate);
+
+            let content = `
+BÁO CÁO DOANH THU - QUẢN LÝ VÉ XE BUS
+=====================================
+
+Kỳ báo cáo: ${startDate} đến ${endDate}
+Ngày xuất báo cáo: ${new Date().toLocaleString('vi-VN')}
+
+TỔNG HỢP:
+---------
+Tổng doanh thu: ${formatCurrency(stats.totalRevenue)}
+Tổng vé bán: ${db.getTickets('status', 'paid').length}
+Tổng giao dịch: ${stats.transactions.length}
+
+CHI TIẾT GIAO DỊCH:
+------------------
+            `;
+
+            stats.transactions.forEach(trans => {
+                content += `
+ID: ${trans.id}
+Vé: ${trans.ticketId}
+Phương thức: ${trans.paymentMethod}
+Số tiền: ${formatCurrency(trans.amount)}
+Thời gian: ${trans.timestamp}
+Trạng thái: ${trans.status}
+---
+                `;
+            });
+
+            const link = document.createElement('a');
+            link.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(content);
+            link.download = `report-${new Date().getTime()}.txt`;
+            link.click();
+            
+            showNotification('Báo cáo đã được tải xuống');
+        }
+
+        // Set default dates (current month)
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        document.getElementById('startDate').value = firstDay.toISOString().split('T')[0];
+        document.getElementById('endDate').value = today.toISOString().split('T')[0];
+
+        filterReports();
+    </script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Bus Ticket Management</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="dashboard.html" class="logo">🚌 BusTicket Pro</a>
+            <ul class="nav-links">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="booking.html">Đặt vé</a></li>
+                <li><a href="my-tickets.html">Vé của tôi</a></li>
+                <li><a href="profile.html">Tài khoản</a></li>
+                <li><a onclick="logout()" style="cursor: pointer;">Đăng xuất</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Dashboard khách hàng</h1>
+        <div id="userGreeting"></div>
+
+        <div class="quick-actions">
+            <div class="quick-action">
+                <h3>📅 Đặt vé mới</h3>
+                <a href="booking.html" class="btn-primary">Bắt đầu</a>
+            </div>
+            <div class="quick-action">
+                <h3>🎫 Vé của tôi</h3>
+                <a href="my-tickets.html" class="btn-primary">Xem</a>
+            </div>
+            <div class="quick-action">
+                <h3>⚙️ Cài đặt tài khoản</h3>
+                <a href="profile.html" class="btn-primary">Quản lý</a>
+            </div>
+        </div>
+
+        <section class="recent-bookings">
+            <h2>Vé gần đây</h2>
+            <div id="recentTickets"></div>
+        </section>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        if (!checkAuth()) exit;
+
+        const user = getCurrentUser();
+        document.getElementById('userGreeting').innerHTML = `
+            <div class="alert alert-info">
+                Xin chào, <strong>${user.name}</strong>! Chào mừng bạn trở lại.
+            </div>
+        `;
+
+        // Load recent tickets
+        const tickets = db.getTickets('passengerEmail', user.email);
+        const recentTicketsDiv = document.getElementById('recentTickets');
+        
+        if (tickets.length === 0) {
+            recentTicketsDiv.innerHTML = '<p>Bạn chưa có vé nào. <a href="booking.html">Đặt vé ngay</a></p>';
+        } else {
+            let html = '<table class="table"><tbody>';
+            tickets.slice(0, 5).forEach(ticket => {
+                const schedule = db.getSchedules().find(s => s.id === ticket.scheduleId);
+                if (schedule) {
+                    html += `
+                        <tr>
+                            <td>${getRouteNameById(schedule.routeId)}</td>
+                            <td>${schedule.date} ${schedule.departureTime}</td>
+                            <td>Ghế ${ticket.seatNumber}</td>
+                            <td><span class="badge badge-${ticket.status}">${ticket.status}</span></td>
+                            <td><a href="ticket-detail.html?id=${ticket.id}" class="btn-small">Chi tiết</a></td>
+                        </tr>
+                    `;
+                }
+            });
+            html += '</tbody></table>';
+            recentTicketsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

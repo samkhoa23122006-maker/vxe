@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Bus Ticket Management</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="admin-dashboard.html" class="logo">🚌 BusTicket Admin</a>
+            <ul class="nav-links">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-routes.html">Tuyến đường</a></li>
+                <li><a href="admin-buses.html">Xe</a></li>
+                <li><a href="admin-schedules.html">Lịch trình</a></li>
+                <li><a href="admin-reports.html">Báo cáo</a></li>
+                <li><a onclick="logout()" style="cursor: pointer;">Đăng xuất</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Admin Dashboard</h1>
+
+        <div class="stats-grid">
+            <div class="stat-box">
+                <h3>💳 Doanh thu</h3>
+                <p class="stat-value" id="totalRevenue">0đ</p>
+                <p class="stat-label">Tháng này</p>
+            </div>
+            <div class="stat-box">
+                <h3>🎫 Vé bán</h3>
+                <p class="stat-value" id="totalTickets">0</p>
+                <p class="stat-label">Tổng cộng</p>
+            </div>
+            <div class="stat-box">
+                <h3>🚌 Chuyến đi</h3>
+                <p class="stat-value" id="totalSchedules">0</p>
+                <p class="stat-label">Đang hoạt động</p>
+            </div>
+            <div class="stat-box">
+                <h3>👥 Khách hàng</h3>
+                <p class="stat-value" id="totalCustomers">0</p>
+                <p class="stat-label">Đã đăng ký</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 40px;">
+            <h2>Bản đồ điều hành</h2>
+            <div class="admin-menu">
+                <a href="admin-routes.html" class="admin-menu-item">
+                    <h3>📍 Quản lý tuyến đường</h3>
+                    <p>Thêm, sửa, xóa tuyến đường</p>
+                </a>
+                <a href="admin-buses.html" class="admin-menu-item">
+                    <h3>🚐 Quản lý xe</h3>
+                    <p>Quản lý thông tin xe buýt</p>
+                </a>
+                <a href="admin-schedules.html" class="admin-menu-item">
+                    <h3>📅 Quản lý lịch trình</h3>
+                    <p>Tạo và quản lý lịch đi của xe</p>
+                </a>
+                <a href="admin-reports.html" class="admin-menu-item">
+                    <h3>📊 Báo cáo & thống kê</h3>
+                    <p>Xem doanh thu, thống kê bán vé</p>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        if (!checkAdminAuth()) exit;
+
+        // Load statistics
+        const stats = db.getRevenueStats();
+        document.getElementById('totalRevenue').textContent = formatCurrency(stats.totalRevenue);
+        document.getElementById('totalTickets').textContent = db.getTickets().length;
+        document.getElementById('totalSchedules').textContent = db.getSchedules().length;
+        
+        const users = JSON.parse(localStorage.getItem('users'));
+        const customers = users.filter(u => u.role === 'customer');
+        document.getElementById('totalCustomers').textContent = customers.length;
+    </script>
+</body>
+</html>

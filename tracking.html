@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theo dõi chuyến xe - Bus Ticket Management</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .tracking-container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .tracking-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .map-section {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            height: 500px;
+            position: relative;
+        }
+
+        .map-placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+            color: var(--gray);
+        }
+
+        .map-placeholder i {
+            font-size: 3rem;
+            color: var(--primary);
+        }
+
+        .map-placeholder p {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .map-placeholder small {
+            color: var(--gray);
+            margin: 0;
+        }
+
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .trip-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .trip-card h3 {
+            margin: 0 0 15px 0;
+            color: var(--primary);
+        }
+
+        .trip-detail {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .trip-detail:last-child {
+            border-bottom: none;
+        }
+
+        .trip-detail strong {
+            color: var(--dark);
+        }
+
+        .trip-detail p {
+            margin: 0;
+            color: var(--gray);
+        }
+
+        .status-badge {
+            display: inline-block;
+            background: var(--success);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+
+        .status-badge.delayed {
+            background: var(--warning);
+        }
+
+        .driver-info {
+            background: linear-gradient(135deg, #0061ff 0%, #0047d1 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .driver-info h4 {
+            margin: 0 0 10px 0;
+            color: white;
+        }
+
+        .driver-info p {
+            margin: 5px 0;
+            color: rgba(255,255,255,0.9);
+        }
+
+        .contact-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn-contact {
+            flex: 1;
+            background: white;
+            color: var(--primary);
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 0.9rem;
+        }
+
+        .btn-contact:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .journey-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat .value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat .label {
+            font-size: 0.8rem;
+            color: var(--gray);
+            margin-top: 5px;
+        }
+
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 15px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid var(--border);
+        }
+
+        .timeline-item.completed {
+            border-left-color: var(--success);
+            background: rgba(34, 197, 94, 0.05);
+        }
+
+        .timeline-item.active {
+            border-left-color: var(--primary);
+            background: rgba(0, 97, 255, 0.05);
+        }
+
+        .timeline-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--border);
+            color: var(--gray);
+            flex-shrink: 0;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .timeline-item.completed .timeline-icon {
+            background: var(--success);
+            color: white;
+        }
+
+        .timeline-item.active .timeline-icon {
+            background: var(--primary);
+            color: white;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .timeline-content p {
+            margin: 0;
+            color: var(--dark);
+            font-weight: 600;
+        }
+
+        .timeline-content small {
+            color: var(--gray);
+            display: block;
+            margin-top: 3px;
+        }
+
+        .notification-banner {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .notification-banner i {
+            font-size: 1.2rem;
+        }
+
+        .notification-banner p {
+            margin: 0;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .tracking-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .map-section {
+                height: 300px;
+            }
+
+            .journey-stats {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+                font-size: 0.9rem;
+            }
+
+            .journey-stats .stat {
+                padding: 8px;
+            }
+
+            .journey-stats .stat .value {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="dashboard.html" class="logo">🚌 BusTicket Pro</a>
+            <ul class="nav-links">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="booking.html">Đặt vé</a></li>
+                <li><a href="my-tickets.html">Vé của tôi</a></li>
+                <li><a href="profile.html">Tài khoản</a></li>
+                <li><a onclick="logout()" style="cursor: pointer;">Đăng xuất</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="tracking-container">
+        <h1>🗺️ Theo dõi chuyến xe</h1>
+
+        <div class="notification-banner">
+            <i class="fas fa-check-circle"></i>
+            <p>Xe sắp tới điểm dừa của bạn. ETA: 15 phút</p>
+        </div>
+
+        <div class="tracking-grid">
+            <div class="map-section">
+                <div class="map-placeholder">
+                    <i class="fas fa-map"></i>
+                    <p>Bản đồ GPS</p>
+                    <small>Tích hợp Google Maps (Sắp tới)</small>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <div class="trip-card">
+                    <h3>Thông tin chuyến xe</h3>
+                    <div class="trip-detail">
+                        <div>
+                            <p><strong>Tuyến đường:</strong></p>
+                            <p>Hà Nội → Sài Gòn</p>
+                        </div>
+                    </div>
+                    <div class="trip-detail">
+                        <div>
+                            <p><strong>Giờ xuất phát:</strong></p>
+                            <p>10:00 AM</p>
+                        </div>
+                    </div>
+                    <div class="trip-detail">
+                        <div>
+                            <p><strong>Dự kiến đến:</strong></p>
+                            <p>18:00 PM</p>
+                        </div>
+                    </div>
+                    <div class="trip-detail">
+                        <div>
+                            <p><strong>Khoảng cách:</strong></p>
+                            <p>1600 km</p>
+                        </div>
+                    </div>
+                    <div class="status-badge">✓ Đang chạy</div>
+                </div>
+
+                <div class="driver-info">
+                    <h4>👨‍✈️ Tài xế</h4>
+                    <p><strong>Trần Văn B</strong></p>
+                    <p>Rating: ⭐⭐⭐⭐⭐ (4.9/5)</p>
+                    <p style="font-size: 0.9rem; margin-top: 5px;">Số điện thoại: 0987654321</p>
+                    <div class="contact-buttons">
+                        <button class="btn-contact" onclick="alert('Đang gọi tài xế...')">
+                            <i class="fas fa-phone"></i> Gọi
+                        </button>
+                        <button class="btn-contact" onclick="alert('Mở trò chuyện...')">
+                            <i class="fas fa-comments"></i> Chat
+                        </button>
+                    </div>
+                </div>
+
+                <div class="trip-card">
+                    <h4>Thống kê hành trình</h4>
+                    <div class="journey-stats">
+                        <div class="stat">
+                            <div class="value">120</div>
+                            <div class="label">Tốc độ hiện tại (km/h)</div>
+                        </div>
+                        <div class="stat">
+                            <div class="value">15</div>
+                            <div class="label">ETA (phút)</div>
+                        </div>
+                        <div class="stat">
+                            <div class="value">850</div>
+                            <div class="label">Quãng đường đã đi (km)</div>
+                        </div>
+                        <div class="stat">
+                            <div class="value">8.5h</div>
+                            <div class="label">Thời gian đã chạy</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="trip-card">
+            <h3>📍 Lộ trình hành trình</h3>
+            <div class="timeline">
+                <div class="timeline-item completed">
+                    <div class="timeline-icon">✓</div>
+                    <div class="timeline-content">
+                        <p>Xuất phát từ Hà Nội</p>
+                        <small>10:00 AM - Hoàn thành</small>
+                    </div>
+                </div>
+
+                <div class="timeline-item completed">
+                    <div class="timeline-icon">✓</div>
+                    <div class="timeline-content">
+                        <p>Dừa tại Hà Nam</p>
+                        <small>12:30 PM - Hoàn thành</small>
+                    </div>
+                </div>
+
+                <div class="timeline-item completed">
+                    <div class="timeline-icon">✓</div>
+                    <div class="timeline-content">
+                        <p>Dừa tại Thanh Hóa</p>
+                        <small>14:45 PM - Hoàn thành</small>
+                    </div>
+                </div>
+
+                <div class="timeline-item active">
+                    <div class="timeline-icon">🚌</div>
+                    <div class="timeline-content">
+                        <p>Xe đang chạy trên quốc lộ 1</p>
+                        <small>Vị trí hiện tại: 50km trước Vinh</small>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon">3</div>
+                    <div class="timeline-content">
+                        <p>Dừa tại Vinh</p>
+                        <small>Dự kiến: 19:00 PM</small>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon">4</div>
+                    <div class="timeline-content">
+                        <p>Dừa tại Đồng Hới</p>
+                        <small>Dự kiến: 20:30 PM</small>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-icon">5</div>
+                    <div class="timeline-content">
+                        <p>Tới Sài Gòn (Điểm dừa cuối)</p>
+                        <small>Dự kiến: 18:00 PM ngày hôm sau</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 40px; text-align: center;">
+            <a href="my-tickets.html" class="btn btn-primary">← Quay lại vé của tôi</a>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        if (!checkAuth()) exit;
+
+        // Simulate real-time location updates
+        setInterval(() => {
+            // In production, fetch GPS coordinates from server
+            console.log('Updating vehicle location...');
+        }, 30000); // Update every 30 seconds
+    </script>
+</body>
+</html>

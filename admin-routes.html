@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý tuyến đường - Admin</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="admin-dashboard.html" class="logo">🚌 BusTicket Admin</a>
+            <ul class="nav-links">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-routes.html">Tuyến đường</a></li>
+                <li><a href="admin-buses.html">Xe</a></li>
+                <li><a href="admin-schedules.html">Lịch trình</a></li>
+                <li><a href="admin-reports.html">Báo cáo</a></li>
+                <li><a onclick="logout()" style="cursor: pointer;">Đăng xuất</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Quản lý tuyến đường</h1>
+
+        <div class="admin-form" style="margin-bottom: 40px;">
+            <h2>Thêm tuyến đường mới</h2>
+            <form id="addRouteForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tên tuyến</label>
+                        <input type="text" id="routeName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Điểm xuất phát</label>
+                        <input type="text" id="routeStart" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Điểm kết thúc</label>
+                        <input type="text" id="routeEnd" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Quãng đường (km)</label>
+                        <input type="number" id="routeDistance" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Thời gian ước tính (giờ)</label>
+                    <input type="number" id="routeTime" required>
+                </div>
+                <button type="submit" class="btn-primary">Thêm tuyến đường</button>
+            </form>
+        </div>
+
+        <h2>Danh sách tuyến đường</h2>
+        <div id="routesList"></div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        if (!checkAdminAuth()) exit;
+
+        function loadRoutes() {
+            const routes = db.getRoutes();
+            let html = '<table class="table"><thead><tr><th>Tên</th><th>Từ</th><th>Đến</th><th>Km</th><th>Giờ</th><th>Trạng thái</th><th>Hành động</th></tr></thead><tbody>';
+            
+            routes.forEach(route => {
+                html += `
+                    <tr>
+                        <td>${route.name}</td>
+                        <td>${route.startPoint}</td>
+                        <td>${route.endPoint}</td>
+                        <td>${route.distance}</td>
+                        <td>${route.estimatedTime}</td>
+                        <td><span class="badge badge-${route.status}">${route.status}</span></td>
+                        <td>
+                            <button onclick="deleteRoute(${route.id})" class="btn-small btn-danger">Xóa</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('routesList').innerHTML = html;
+        }
+
+        function deleteRoute(routeId) {
+            if (confirm('Bạn có chắc chắn muốn xóa tuyến đường này?')) {
+                const routes = JSON.parse(localStorage.getItem('routes'));
+                const filtered = routes.filter(r => r.id !== routeId);
+                localStorage.setItem('routes', JSON.stringify(filtered));
+                showNotification('Tuyến đường đã được xóa');
+                loadRoutes();
+            }
+        }
+
+        document.getElementById('addRouteForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('routeName').value;
+            const startPoint = document.getElementById('routeStart').value;
+            const endPoint = document.getElementById('routeEnd').value;
+            const distance = parseInt(document.getElementById('routeDistance').value);
+            const estimatedTime = parseInt(document.getElementById('routeTime').value);
+
+            db.addRoute(name, startPoint, endPoint, distance, estimatedTime);
+            showNotification('Tuyến đường đã được thêm');
+            this.reset();
+            loadRoutes();
+        });
+
+        loadRoutes();
+    </script>
+</body>
+</html>

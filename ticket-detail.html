@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chi tiết vé - Bus Ticket Management</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="dashboard.html" class="logo">🚌 BusTicket Pro</a>
+            <ul class="nav-links">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="booking.html">Đặt vé</a></li>
+                <li><a href="my-tickets.html">Vé của tôi</a></li>
+                <li><a href="profile.html">Tài khoản</a></li>
+                <li><a onclick="logout()" style="cursor: pointer;">Đăng xuất</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Chi tiết vé</h1>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px;">
+            <div class="ticket-detail">
+                <div class="ticket-card" style="border: none; box-shadow: none;">
+                    <div class="ticket-header">
+                        <div>
+                            <h2 id="routeName"></h2>
+                            <p id="routeInfo"></p>
+                        </div>
+                        <span class="badge" id="ticketStatus"></span>
+                    </div>
+                    <div class="ticket-body">
+                        <h3>Thông tin vé</h3>
+                        <p><strong>ID Vé:</strong> <span id="ticketId"></span></p>
+                        <p><strong>Mã QR:</strong> <span id="qrCode"></span></p>
+                        <p><strong>Hành khách:</strong> <span id="passengerName"></span></p>
+                        <p><strong>Điện thoại:</strong> <span id="passengerPhone"></span></p>
+                        <p><strong>Ghế số:</strong> <span id="seatNumber"></span></p>
+                        
+                        <h3 style="margin-top: 30px;">Thông tin chuyến</h3>
+                        <p><strong>Ngày xuất phát:</strong> <span id="departureDate"></span></p>
+                        <p><strong>Giờ xuất phát:</strong> <span id="departureTime"></span></p>
+                        <p><strong>Giờ dự kiến đến:</strong> <span id="arrivalTime"></span></p>
+                        <p><strong>Loại xe:</strong> <span id="busType"></span></p>
+                        <p><strong>Biển số:</strong> <span id="busPlate"></span></p>
+                        <p><strong>Tài xế:</strong> <span id="driverName"></span></p>
+                        
+                        <h3 style="margin-top: 30px;">Thanh toán</h3>
+                        <p><strong>Giá vé:</strong> <span id="ticketPrice"></span></p>
+                        <p><strong>Ngày đặt:</strong> <span id="bookingDate"></span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: var(--shadow-sm); height: fit-content;">
+                <h3>Mã QR Code</h3>
+                <img id="qrImage" src="" alt="QR Code" style="width: 100%; margin: 20px 0; border: 2px solid var(--border); padding: 10px; border-radius: 8px;">
+                <p style="font-size: 0.9rem; color: var(--gray); text-align: center;">Quét mã QR khi lên xe</p>
+                
+                <div style="margin-top: 30px;">
+                    <button onclick="printTicket()" class="btn-primary" style="width: 100%; margin-bottom: 10px;">🖨️ In vé</button>
+                    <button onclick="downloadTicket()" class="btn-secondary" style="width: 100%; margin-bottom: 10px;">📥 Tải xuống</button>
+                    <button onclick="shareTicket()" class="btn-secondary" style="width: 100%;">📤 Chia sẻ</button>
+                </div>
+
+                <div id="paymentSection" style="margin-top: 30px; padding-top: 30px; border-top: 1px solid var(--border);">
+                    <h3>Thanh toán</h3>
+                    <p id="paymentStatus"></p>
+                    <div id="unpaidActions" style="display: none; margin-top: 15px;">
+                        <button onclick="processPayment()" class="btn-primary" style="width: 100%;">💳 Thanh toán ngay</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        if (!checkAuth()) exit;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const ticketId = parseInt(urlParams.get('id'));
+
+        if (!ticketId) {
+            window.location.href = 'my-tickets.html';
+        }
+
+        const ticket = db.getTickets().find(t => t.id === ticketId);
+        if (!ticket) {
+            showNotification('Vé không tồn tại', 'error');
+            setTimeout(() => window.location.href = 'my-tickets.html', 2000);
+        }
+
+        const schedule = db.getSchedules().find(s => s.id === ticket.scheduleId);
+        const route = db.getRoutes().find(r => r.id === schedule.routeId);
+        const bus = JSON.parse(localStorage.getItem('buses')).find(b => b.id === schedule.busId);
+        const driver = JSON.parse(localStorage.getItem('drivers')).find(d => d.id === schedule.driverId);
+
+        // Display ticket details
+        document.getElementById('ticketId').textContent = ticket.id;
+        document.getElementById('qrCode').textContent = ticket.qrCode;
+        document.getElementById('passengerName').textContent = ticket.passengerName;
+        document.getElementById('passengerPhone').textContent = ticket.passengerPhone;
+        document.getElementById('seatNumber').textContent = ticket.seatNumber;
+        document.getElementById('routeName').textContent = route.name;
+        document.getElementById('routeInfo').textContent = `${route.startPoint} → ${route.endPoint} (${route.distance}km)`;
+        document.getElementById('departureDate').textContent = schedule.date;
+        document.getElementById('departureTime').textContent = schedule.departureTime;
+        document.getElementById('arrivalTime').textContent = schedule.arrivalTime;
+        document.getElementById('busType').textContent = bus.type;
+        document.getElementById('busPlate').textContent = bus.licensePlate;
+        document.getElementById('driverName').textContent = driver.name;
+        document.getElementById('ticketPrice').textContent = formatCurrency(ticket.price);
+        document.getElementById('bookingDate').textContent = ticket.bookingDate;
+
+        // Status badge
+        const statusBadge = document.getElementById('ticketStatus');
+        statusBadge.className = `badge badge-${ticket.status}`;
+        statusBadge.textContent = ticket.status;
+
+        // QR Code
+        document.getElementById('qrImage').src = generateQRCode(ticket.qrCode);
+
+        // Payment status
+        const paymentSection = document.getElementById('paymentSection');
+        const paymentStatus = document.getElementById('paymentStatus');
+        const unpaidActions = document.getElementById('unpaidActions');
+
+        if (ticket.status === 'unpaid') {
+            paymentStatus.innerHTML = '<span style="color: var(--warning);">⚠️ <strong>Chưa thanh toán</strong></span>';
+            unpaidActions.style.display = 'block';
+        } else if (ticket.status === 'paid') {
+            paymentStatus.innerHTML = '<span style="color: var(--success);">✓ <strong>Đã thanh toán</strong></span>';
+        } else if (ticket.status === 'used') {
+            paymentStatus.innerHTML = '<span style="color: var(--primary);">✓ <strong>Đã sử dụng</strong></span>';
+        } else if (ticket.status === 'cancelled') {
+            paymentStatus.innerHTML = '<span style="color: var(--danger);">✗ <strong>Đã hủy</strong></span>';
+        }
+
+        function printTicket() {
+            window.print();
+        }
+
+        function downloadTicket() {
+            const content = generateTicketPDF(ticket, schedule);
+            const link = document.createElement('a');
+            link.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(content);
+            link.download = `ticket-${ticket.id}.txt`;
+            link.click();
+            showNotification('Vé đã được tải xuống');
+        }
+
+        function shareTicket() {
+            const text = `Tôi vừa đặt vé xe bus:\n
+Tuyến: ${route.name}
+Ngày: ${schedule.date}
+Giờ: ${schedule.departureTime}
+Mã QR: ${ticket.qrCode}
+
+Quản lý vé tại: ${window.location.href}`;
+
+            if (navigator.share) {
+                navigator.share({ title: 'Vé xe bus', text: text });
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showNotification('Đã sao chép vào clipboard');
+            }
+        }
+
+        function processPayment() {
+            // Simulate payment
+            db.addTransaction(ticket.id, 'card', ticket.price);
+            db.updateTicketStatus(ticket.id, 'paid');
+            showNotification('Thanh toán thành công!');
+            setTimeout(() => location.reload(), 1500);
+        }
+    </script>
+</body>
+</html>

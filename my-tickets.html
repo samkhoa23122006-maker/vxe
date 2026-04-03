@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vé của tôi - Bus Ticket Management</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="dashboard.html" class="logo">🚌 BusTicket Pro</a>
+            <ul class="nav-links">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="booking.html">Đặt vé</a></li>
+                <li><a href="my-tickets.html">Vé của tôi</a></li>
+                <li><a href="profile.html">Tài khoản</a></li>
+                <li><a onclick="logout()" style="cursor: pointer;">Đăng xuất</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Vé của tôi</h1>
+
+        <div style="margin-bottom: 20px;">
+            <label>Lọc theo trạng thái:</label>
+            <select id="filterStatus" onchange="filterTickets()">
+                <option value="">Tất cả</option>
+                <option value="paid">Đã thanh toán</option>
+                <option value="unpaid">Chưa thanh toán</option>
+                <option value="used">Đã sử dụng</option>
+                <option value="cancelled">Đã hủy</option>
+            </select>
+        </div>
+
+        <div id="ticketsList"></div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        if (!checkAuth()) exit;
+
+        const user = getCurrentUser();
+        let allTickets = [];
+
+        function loadTickets() {
+            allTickets = db.getTickets('passengerEmail', user.email);
+            filterTickets();
+        }
+
+        function filterTickets() {
+            const status = document.getElementById('filterStatus').value;
+            let filtered = allTickets;
+            
+            if (status) {
+                filtered = allTickets.filter(t => t.status === status);
+            }
+
+            const ticketsList = document.getElementById('ticketsList');
+            
+            if (filtered.length === 0) {
+                ticketsList.innerHTML = '<p>Không có vé nào.</p>';
+                return;
+            }
+
+            let html = '<div class="tickets-grid">';
+            filtered.forEach(ticket => {
+                const schedule = db.getSchedules().find(s => s.id === ticket.scheduleId);
+                const route = db.getRoutes().find(r => r.id === schedule.routeId);
+                
+                html += `
+                    <div class="ticket-card">
+                        <div class="ticket-header">
+                            <h3>${route.name}</h3>
+                            <span class="badge badge-${ticket.status}">${ticket.status}</span>
+                        </div>
+                        <div class="ticket-body">
+                            <p><strong>Ngày:</strong> ${schedule.date}</p>
+                            <p><strong>Giờ:</strong> ${schedule.departureTime}</p>
+                            <p><strong>Ghế:</strong> ${ticket.seatNumber}</p>
+                            <p><strong>Giá:</strong> ${formatCurrency(ticket.price)}</p>
+                            <p><strong>Mã QR:</strong> ${ticket.qrCode}</p>
+                        </div>
+                        <div class="ticket-footer">
+                            <a href="ticket-detail.html?id=${ticket.id}" class="btn-primary">Chi tiết</a>
+                            ${ticket.status === 'unpaid' ? `<button onclick="cancelTicket(${ticket.id})" class="btn-secondary">Hủy</button>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            
+            ticketsList.innerHTML = html;
+        }
+
+        function cancelTicket(ticketId) {
+            if (confirm('Bạn có chắc chắn muốn hủy vé này?')) {
+                db.updateTicketStatus(ticketId, 'cancelled');
+                showNotification('Vé đã được hủy');
+                loadTickets();
+            }
+        }
+
+        loadTickets();
+    </script>
+</body>
+</html>

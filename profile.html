@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý tài khoản - Bus Ticket Management</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="dashboard.html" class="logo">🚌 BusTicket Pro</a>
+            <ul class="nav-links">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="booking.html">Đặt vé</a></li>
+                <li><a href="my-tickets.html">Vé của tôi</a></li>
+                <li><a href="profile.html">Tài khoản</a></li>
+                <li><a onclick="logout()" style="cursor: pointer;">Đăng xuất</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Quản lý tài khoản</h1>
+
+        <div class="profile-section">
+            <h2>Thông tin cá nhân</h2>
+            <form id="profileForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Họ và tên</label>
+                        <input type="text" id="profileName" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="profileEmail" readonly>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Số điện thoại</label>
+                    <input type="tel" id="profilePhone" readonly>
+                </div>
+            </form>
+        </div>
+
+        <div class="profile-section">
+            <h2>Đổi mật khẩu</h2>
+            <form id="changePasswordForm">
+                <div class="form-group">
+                    <label>Mật khẩu cũ</label>
+                    <div class="password-group">
+                        <input type="password" id="oldPassword" required>
+                        <button type="button" class="toggle-password" onclick="togglePassword('oldPassword')">👁️</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Mật khẩu mới</label>
+                    <div class="password-group">
+                        <input type="password" id="newPassword" required>
+                        <button type="button" class="toggle-password" onclick="togglePassword('newPassword')">👁️</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Xác nhận mật khẩu mới</label>
+                    <input type="password" id="confirmNewPassword" required>
+                </div>
+                <button type="submit" class="btn-primary">Cập nhật mật khẩu</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        if (!checkAuth()) exit;
+
+        const user = getCurrentUser();
+        document.getElementById('profileName').value = user.name;
+        document.getElementById('profileEmail').value = user.email;
+        document.getElementById('profilePhone').value = user.phone;
+
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+
+        document.getElementById('changePasswordForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const oldPassword = document.getElementById('oldPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmNewPassword').value;
+
+            const result = auth.changePassword(oldPassword, newPassword, confirmPassword);
+            
+            if (result.success) {
+                showNotification(result.message);
+                this.reset();
+            } else {
+                showNotification(result.message, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

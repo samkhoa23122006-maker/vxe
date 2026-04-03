@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đặt vé - Bus Ticket Management</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="dashboard.html" class="logo">🚌 BusTicket Pro</a>
+            <ul class="nav-links">
+                <li><a href="dashboard.html">Dashboard</a></li>
+                <li><a href="booking.html">Đặt vé</a></li>
+                <li><a href="my-tickets.html">Vé của tôi</a></li>
+                <li><a href="profile.html">Tài khoản</a></li>
+                <li><a onclick="logout()" style="cursor: pointer;">Đăng xuất</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Đặt vé xe bus</h1>
+
+        <div class="booking-form">
+            <h2>Tìm chuyến đi</h2>
+            <form id="searchForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Điểm khởi hành</label>
+                        <input type="text" id="departurePoint" placeholder="Ví dụ: Hà Giang" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Điểm đến</label>
+                        <input type="text" id="destination" placeholder="Ví dụ: Thái Bình" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Ngày đi</label>
+                        <input type="date" id="dateSelect" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Giá từ - đến (VND)</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="number" id="priceMin" placeholder="Từ" min="0">
+                            <input type="number" id="priceMax" placeholder="Đến" min="0">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Loại xe</label>
+                        <select id="busType">
+                            <option value="">-- Tất cả loại xe --</option>
+                            <option value="Limousine">Limousine (Giường nằm)</option>
+                            <option value="VIP">VIP</option>
+                            <option value="Standard">Tiêu chuẩn</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Công ty xe buýt</label>
+                        <select id="busCompany">
+                            <option value="">-- Tất cả công ty --</option>
+                            <option value="Quang Nghi">Quang Nghi</option>
+                            <option value="Sunwin">Sunwin</option>
+                            <option value="Thaco">Thaco</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Tìm kiếm</button>
+            </form>
+        </div>
+
+        <div id="searchResults" style="margin-top: 40px; display: none;">
+            <div class="results-header">
+                <h2>Kết quả tìm kiếm - <span id="resultCount">0</span> chuyến đi</h2>
+                <div class="sort-options">
+                    <label>Sắp xếp theo:</label>
+                    <select id="sortBy" onchange="applySort()">
+                        <option value="departure-asc">Giờ xuất phát (sớm nhất)</option>
+                        <option value="departure-desc">Giờ xuất phát (muộn nhất)</option>
+                        <option value="price-asc">Giá (thấp nhất)</option>
+                        <option value="price-desc">Giá (cao nhất)</option>
+                        <option value="rating">Đánh giá cao nhất</option>
+                    </select>
+                </div>
+            </div>
+            <div id="schedulesList"></div>
+        </div>
+
+        <div id="bookingSection" style="display: none; margin-top: 40px;">
+            <h2>Thông tin hành khách</h2>
+            <form id="bookingForm">
+                <input type="hidden" id="selectedScheduleId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Họ và tên</label>
+                        <input type="text" id="passengerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Số điện thoại</label>
+                        <input type="tel" id="passengerPhone" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Chọn ghế</label>
+                    <div id="seatMap" class="seat-map"></div>
+                </div>
+                <div class="form-group">
+                    <label>Phương thức thanh toán</label>
+                    <select id="paymentMethod" required>
+                        <option value="">-- Chọn phương thức --</option>
+                        <option value="cash">Tiền mặt</option>
+                        <option value="card">Thẻ ngân hàng</option>
+                        <option value="ewallet">Ví điện tử</option>
+                    </select>
+                </div>
+                <div id="totalPrice" style="margin-top: 20px; font-weight: bold; font-size: 18px;"></div>
+                <button type="submit" class="btn-primary" style="margin-top: 20px;">Xác nhận đặt vé</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        if (!checkAuth()) exit;
+
+        const user = getCurrentUser();
+        let selectedSeat = null;
+        let selectedSchedule = null;
+        let selectedSchedulePrice = 450000;
+        let allSchedules = [];
+        let filteredSchedules = [];
+        const defaultPrice = 450000;
+
+        // Set today as minimum date
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('dateSelect').min = today;
+
+        // Bus company data
+        const busCompanyMap = {
+            'BUS-001': 'Quang Nghi',
+            'BUS-002': 'Sunwin',
+            'BUS-003': 'Thaco'
+        };
+
+        // Bus ratings (mock data)
+        const busRatings = {
+            'BUS-001': 4.8,
+            'BUS-002': 4.5,
+            'BUS-003': 4.6
+        };
+
+        // Promotional info
+        const promotions = {
+            'SCH-001': { label: 'Early booking discount', discount: 10 },
+            'SCH-002': { label: 'Weekend special', discount: 15 }
+        };
+
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            performSearch();
+        });
+
+        function performSearch() {
+            const departurePoint = document.getElementById('departurePoint').value.toLowerCase();
+            const destination = document.getElementById('destination').value.toLowerCase();
+            const date = document.getElementById('dateSelect').value;
+            const priceMin = document.getElementById('priceMin').value ? parseInt(document.getElementById('priceMin').value) : 0;
+            const priceMax = document.getElementById('priceMax').value ? parseInt(document.getElementById('priceMax').value) : 999999999;
+            const busType = document.getElementById('busType').value;
+            const busCompany = document.getElementById('busCompany').value;
+
+            const routes = db.getRoutes();
+            const buses = JSON.parse(localStorage.getItem('buses')) || [];
+            const drivers = JSON.parse(localStorage.getItem('drivers')) || [];
+            
+            // Filter routes based on departure and destination
+            const matchingRoutes = routes.filter(route => {
+                const routeLower = route.name.toLowerCase();
+                return (routeLower.includes(departurePoint) || departurePoint === '') &&
+                       (routeLower.includes(destination) || destination === '');
+            });
+
+            if (matchingRoutes.length === 0) {
+                showNotification('Không tìm thấy tuyến đường phù hợp', 'warning');
+                document.getElementById('searchResults').style.display = 'none';
+                return;
+            }
+
+            // Get schedules for matching routes and date
+            allSchedules = [];
+            matchingRoutes.forEach(route => {
+                const schedules = db.getSchedules(route.id).filter(s => 
+                    s.date === date && s.status === 'scheduled'
+                );
+                schedules.forEach(schedule => {
+                    const bus = buses.find(b => b.id === schedule.busId);
+                    const company = busCompanyMap[schedule.busId] || 'Standard Bus';
+                    const ticketPrice = schedule.price || defaultPrice;
+                    
+                    // Apply filters
+                    if (busType && bus.type !== busType) return;
+                    if (busCompany && company !== busCompany) return;
+                    if (ticketPrice < priceMin || ticketPrice > priceMax) return;
+                    
+                    allSchedules.push({
+                        ...schedule,
+                        route: route,
+                        bus: bus,
+                        driver: drivers.find(d => d.id === schedule.driverId),
+                        company: company,
+                        rating: busRatings[schedule.busId] || 4.5,
+                        promotion: promotions[schedule.id],
+                        ticketPrice: ticketPrice
+                    });
+                });
+            });
+
+            if (allSchedules.length === 0) {
+                showNotification('Không có chuyến đi nào phù hợp với tiêu chí tìm kiếm', 'warning');
+                document.getElementById('searchResults').style.display = 'none';
+                return;
+            }
+
+            filteredSchedules = [...allSchedules];
+            displaySchedules();
+            document.getElementById('searchResults').style.display = 'block';
+        }
+
+        function displaySchedules() {
+            document.getElementById('resultCount').textContent = filteredSchedules.length;
+            const schedulesList = document.getElementById('schedulesList');
+            let html = '';
+
+            filteredSchedules.forEach(schedule => {
+                const bookedSeats = db.getTickets()
+                    .filter(t => t.scheduleId === schedule.id && t.status !== 'cancelled')
+                    .length;
+                const availableSeats = schedule.bus.capacity - bookedSeats;
+                const promotion = schedule.promotion;
+                const ticketPrice = schedule.ticketPrice || defaultPrice;
+                
+                const discountedPrice = promotion ? 
+                    Math.round(ticketPrice * (1 - promotion.discount / 100)) : 
+                    ticketPrice;
+
+                html += `
+                    <div class="schedule-card enhanced">
+                        ${promotion ? `<div class="promotion-badge">${promotion.label} (-${promotion.discount}%)</div>` : ''}
+                        
+                        <div class="schedule-header">
+                            <div class="trip-info">
+                                <h3>${schedule.route.name}</h3>
+                                <p class="company-info">🚌 ${schedule.company} | ⭐ ${schedule.rating.toFixed(1)}</p>
+                                <p class="vehicle-type">Loại xe: <strong>${schedule.bus.type} - Phòng nằm</strong></p>
+                            </div>
+                            <div class="trip-times">
+                                <div class="departure">
+                                    <h4>${schedule.departureTime}</h4>
+                                    <p class="label">Xuất phát</p>
+                                </div>
+                                <div class="duration">${schedule.route.estimatedTime}h</div>
+                                <div class="arrival">
+                                    <h4>${schedule.arrivalTime}</h4>
+                                    <p class="label">Dự kiến đến</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="schedule-details">
+                            <div class="detail-item">
+                                <strong>Tài xế:</strong> ${schedule.driver.name}
+                            </div>
+                            <div class="detail-item">
+                                <strong>Khoảng cách:</strong> ${schedule.route.distance}km
+                            </div>
+                            <div class="detail-item">
+                                <strong>Ghế trống:</strong> ${availableSeats}/${schedule.bus.capacity}
+                            </div>
+                            <div class="detail-item">
+                                <strong>Điểm khởi hành:</strong> ${schedule.route.startPoint}
+                            </div>
+                            <div class="detail-item">
+                                <strong>Điểm dừa:</strong> ${schedule.route.endPoint}
+                            </div>
+                        </div>
+
+                        <div class="schedule-footer">
+                            <div class="price-section">
+                                ${promotion ? `<p class="original-price">₫${formatCurrency(ticketPrice)}</p>` : ''}
+                                <p class="price">₫${formatCurrency(discountedPrice)}</p>
+                                <p class="confirmation-badge">✓ Xác nhận tức thì</p>
+                            </div>
+                            <div class="action-section">
+                                <button class="btn-select-trip" onclick="selectTrip(${schedule.id}, ${discountedPrice})">Chọn chuyến</button>
+                                <button class="btn-track" onclick="openTracking(${schedule.id})">🗺️ Theo dõi</button>
+                            </div>
+                        </div>
+                        
+                        <div class="payment-info">
+                            ✓ Không cần cọc tiền | ✓ Xác nhận tức thì
+                        </div>
+                    </div>
+                `;
+            });
+
+            schedulesList.innerHTML = html;
+        }
+
+        function applySort() {
+            const sortBy = document.getElementById('sortBy').value;
+            
+            switch(sortBy) {
+                case 'departure-asc':
+                    filteredSchedules.sort((a, b) => a.departureTime.localeCompare(b.departureTime));
+                    break;
+                case 'departure-desc':
+                    filteredSchedules.sort((a, b) => b.departureTime.localeCompare(a.departureTime));
+                    break;
+                case 'price-asc':
+                    filteredSchedules.sort((a, b) => (a.ticketPrice || defaultPrice) - (b.ticketPrice || defaultPrice));
+                    break;
+                case 'price-desc':
+                    filteredSchedules.sort((a, b) => (b.ticketPrice || defaultPrice) - (a.ticketPrice || defaultPrice));
+                    break;
+                case 'rating':
+                    filteredSchedules.sort((a, b) => b.rating - a.rating);
+                    break;
+            }
+            displaySchedules();
+        }
+
+        function selectTrip(scheduleId, price) {
+            selectedSchedule = scheduleId;
+            selectedSchedulePrice = price;
+            document.getElementById('selectedScheduleId').value = scheduleId;
+            document.getElementById('bookingSection').style.display = 'block';
+            document.getElementById('passengerName').value = user.name;
+            document.getElementById('passengerPhone').value = user.phone;
+
+            // Generate seat map
+            const schedule = allSchedules.find(s => s.id === scheduleId);
+            const bookedSeats = db.getTickets()
+                .filter(t => t.scheduleId === scheduleId && t.status !== 'cancelled')
+                .map(t => t.seatNumber);
+
+            let seatHtml = '';
+            for (let i = 1; i <= schedule.bus.capacity; i++) {
+                const isBooked = bookedSeats.includes(i.toString());
+                seatHtml += `
+                    <div class="seat ${isBooked ? 'booked' : 'available'} ${selectedSeat === i ? 'selected' : ''}" 
+                         onclick="${isBooked ? '' : `selectSeat(${i}, ${price})`}">
+                        ${i}
+                    </div>
+                `;
+            }
+            document.getElementById('seatMap').innerHTML = seatHtml;
+            
+            // Scroll to booking form
+            document.getElementById('bookingSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function selectSeat(seatNumber, price) {
+            selectedSeat = seatNumber;
+            const seats = document.querySelectorAll('.seat');
+            seats.forEach(seat => seat.classList.remove('selected'));
+            
+            // Find and select the seat
+            const seatElements = document.querySelectorAll('.seat');
+            seatElements.forEach((seat, index) => {
+                if (index + 1 === seatNumber) {
+                    seat.classList.add('selected');
+                }
+            });
+            
+            document.getElementById('totalPrice').innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Ghế số <strong>${seatNumber}</strong></span>
+                    <span style="font-size: 1.3em; color: #667eea;">₫${formatCurrency(price)}</span>
+                </div>
+            `;
+        }
+
+        function openTracking(scheduleId) {
+            // Navigate to tracking page
+            window.location.href = `tracking.html?scheduleId=${scheduleId}`;
+        }
+
+        document.getElementById('bookingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            if (!selectedSeat) {
+                showNotification('Vui lòng chọn ghế', 'error');
+                return;
+            }
+
+            const passengerName = document.getElementById('passengerName').value;
+            const passengerPhone = document.getElementById('passengerPhone').value;
+            const paymentMethod = document.getElementById('paymentMethod').value;
+
+            // Book ticket
+            const ticket = db.bookTicket(selectedSchedule, passengerName, user.email, passengerPhone, selectedSeat, selectedSchedulePrice);
+
+            // Add payment transaction
+            if (paymentMethod === 'cash') {
+                ticket.status = 'unpaid';
+            } else {
+                db.addTransaction(ticket.id, paymentMethod, selectedSchedulePrice);
+                ticket.status = 'paid';
+                db.updateTicketStatus(ticket.id, 'paid');
+            }
+
+            showNotification('Đặt vé thành công!');
+            setTimeout(() => {
+                window.location.href = `ticket-detail.html?id=${ticket.id}`;
+            }, 1500);
+        });
+    </script>
+</body>
+</html>

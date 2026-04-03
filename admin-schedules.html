@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý lịch trình - Admin</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="admin-dashboard.html" class="logo">🚌 BusTicket Admin</a>
+            <ul class="nav-links">
+                <li><a href="admin-dashboard.html">Dashboard</a></li>
+                <li><a href="admin-routes.html">Tuyến đường</a></li>
+                <li><a href="admin-buses.html">Xe</a></li>
+                <li><a href="admin-schedules.html">Lịch trình</a></li>
+                <li><a href="admin-reports.html">Báo cáo</a></li>
+                <li><a onclick="logout()" style="cursor: pointer;">Đăng xuất</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Quản lý lịch trình</h1>
+
+        <div class="admin-form" style="margin-bottom: 40px;">
+            <h2>Thêm lịch trình mới</h2>
+            <form id="addScheduleForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tuyến đường</label>
+                        <select id="scheduleRoute" required>
+                            <option value="">-- Chọn tuyến --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Xe</label>
+                        <select id="scheduleBus" required>
+                            <option value="">-- Chọn xe --</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tài xế</label>
+                        <select id="scheduleDriver" required>
+                            <option value="">-- Chọn tài xế --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Ngày</label>
+                        <input type="date" id="scheduleDate" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Giờ xuất phát</label>
+                        <input type="time" id="scheduleDepartureTime" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Giờ dự kiến đến</label>
+                        <input type="time" id="scheduleArrivalTime" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">Thêm lịch trình</button>
+            </form>
+        </div>
+
+        <h2>Danh sách lịch trình</h2>
+        <div id="schedulesList"></div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="auth.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        if (!checkAdminAuth()) exit;
+
+        // Load routes into select
+        const routes = db.getRoutes();
+        const routeSelect = document.getElementById('scheduleRoute');
+        routes.forEach(route => {
+            const option = document.createElement('option');
+            option.value = route.id;
+            option.textContent = route.name;
+            routeSelect.appendChild(option);
+        });
+
+        // Load buses into select
+        const buses = JSON.parse(localStorage.getItem('buses'));
+        const busSelect = document.getElementById('scheduleBus');
+        buses.forEach(bus => {
+            const option = document.createElement('option');
+            option.value = bus.id;
+            option.textContent = `${bus.type} - ${bus.licensePlate}`;
+            busSelect.appendChild(option);
+        });
+
+        // Load drivers into select
+        const drivers = JSON.parse(localStorage.getItem('drivers'));
+        const driverSelect = document.getElementById('scheduleDriver');
+        drivers.forEach(driver => {
+            const option = document.createElement('option');
+            option.value = driver.id;
+            option.textContent = driver.name;
+            driverSelect.appendChild(option);
+        });
+
+        // Set minimum date to today
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('scheduleDate').min = today;
+
+        function loadSchedules() {
+            const schedules = db.getSchedules();
+            let html = '<table class="table"><thead><tr><th>Tuyến</th><th>Xe</th><th>Ngày</th><th>Giờ xuất/đến</th><th>Trạng thái</th><th>Hành động</th></tr></thead><tbody>';
+            
+            schedules.forEach(schedule => {
+                const route = routes.find(r => r.id === schedule.routeId);
+                const bus = buses.find(b => b.id === schedule.busId);
+                
+                html += `
+                    <tr>
+                        <td>${route.name}</td>
+                        <td>${bus.type} - ${bus.licensePlate}</td>
+                        <td>${schedule.date}</td>
+                        <td>${schedule.departureTime} / ${schedule.arrivalTime}</td>
+                        <td><span class="badge badge-${schedule.status}">${schedule.status}</span></td>
+                        <td>
+                            <button onclick="deleteSchedule(${schedule.id})" class="btn-small btn-danger">Xóa</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('schedulesList').innerHTML = html;
+        }
+
+        function deleteSchedule(scheduleId) {
+            if (confirm('Bạn có chắc chắn muốn xóa lịch trình này?')) {
+                const schedules = JSON.parse(localStorage.getItem('schedules'));
+                const filtered = schedules.filter(s => s.id !== scheduleId);
+                localStorage.setItem('schedules', JSON.stringify(filtered));
+                showNotification('Lịch trình đã được xóa');
+                loadSchedules();
+            }
+        }
+
+        document.getElementById('addScheduleForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const routeId = parseInt(document.getElementById('scheduleRoute').value);
+            const busId = parseInt(document.getElementById('scheduleBus').value);
+            const driverId = parseInt(document.getElementById('scheduleDriver').value);
+            const date = document.getElementById('scheduleDate').value;
+            const departureTime = document.getElementById('scheduleDepartureTime').value;
+            const arrivalTime = document.getElementById('scheduleArrivalTime').value;
+
+            db.addSchedule(routeId, busId, driverId, date, departureTime, arrivalTime);
+            showNotification('Lịch trình đã được thêm');
+            this.reset();
+            loadSchedules();
+        });
+
+        loadSchedules();
+    </script>
+</body>
+</html>
